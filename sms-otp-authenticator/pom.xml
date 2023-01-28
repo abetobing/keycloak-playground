@@ -22,6 +22,30 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-jar-plugin</artifactId>
                 </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>3.0.2</version>
+                    <executions>
+                        <execution>
+                            <id>copy-files-on-build</id>
+                            <phase>package</phase>
+                            <goals>
+                                <goal>copy-resources</goal>
+                            </goals>
+                            <configuration>
+                                <outputDirectory>${basedir}/../docker/providers</outputDirectory>
+                                <resources>
+                                    <resource>
+                                        <directory>target</directory>
+                                        <include>*.jar</include>
+                                        <filtering>false</filtering>
+                                    </resource>
+                                </resources>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
             </plugins>
         </pluginManagement>
     </build>
