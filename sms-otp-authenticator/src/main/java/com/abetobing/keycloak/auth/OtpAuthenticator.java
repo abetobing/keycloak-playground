@@ -24,8 +24,8 @@ import java.util.List;
 @Setter
 public class OtpAuthenticator implements Authenticator {
 
-    private static final String MOBILE_NUMBER_FIELD = "mobile_number";
-    private static final String OTP_CODE_INPUT_FIELD = "otp_code";
+    private static final String MOBILE_NUMBER_ATTRIBUTE = "phoneNumber";
+    private static final String OTP_CODE_INPUT_FIELD = "otpInput";
 
     private static final String QUERY_STRING_RESEND = "resendOtp";
 
@@ -47,7 +47,7 @@ public class OtpAuthenticator implements Authenticator {
             }
         }
 
-        mobileNumber = user.getFirstAttribute(MOBILE_NUMBER_FIELD);
+        mobileNumber = user.getFirstAttribute(MOBILE_NUMBER_ATTRIBUTE);
 //        if (mobileNumber == null) {
 //            log.error("User has no phone number");
 //            context.getEvent().error("user_has_no_phone_number");
@@ -98,7 +98,7 @@ public class OtpAuthenticator implements Authenticator {
 
     private boolean validateInput(String otpInput) {
         // this is just an example, do your own OTP code validation
-        return otpInput.trim().equals("777999");
+        return (null != otpInput && otpInput.trim().equals("777999"));
     }
 
     @Override
