@@ -5,11 +5,15 @@ import lombok.Setter;
 import lombok.extern.jbosslog.JBossLog;
 import org.keycloak.authentication.AuthenticationFlowContext;
 import org.keycloak.authentication.AuthenticationFlowError;
+import org.keycloak.authentication.AuthenticationFlowException;
 import org.keycloak.authentication.Authenticator;
-import org.keycloak.authentication.authenticators.browser.AbstractUsernameFormAuthenticator;
 import org.keycloak.authentication.authenticators.browser.OTPFormAuthenticator;
+import org.keycloak.authentication.authenticators.conditional.ConditionalAuthenticator;
 import org.keycloak.common.util.KeycloakUriBuilder;
+import org.keycloak.events.Errors;
+import org.keycloak.events.EventType;
 import org.keycloak.forms.login.LoginFormsProvider;
+import org.keycloak.models.AuthenticatorConfigModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
@@ -20,7 +24,7 @@ import org.keycloak.services.validation.Validation;
 
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
-import java.util.List;
+import java.util.Map;
 
 @JBossLog
 @Getter
@@ -51,26 +55,37 @@ public class OtpAuthenticator extends OTPFormAuthenticator implements Authentica
             }
         }
 
-        generateAndSendOtpCode(context);
-        Response challengeForm = challenge(context, null, null);
-        context.challenge(challengeForm);
-    }
-
-    private void generateAndSendOtpCode(AuthenticationFlowContext context) {
         // TODO: randomize otp code
         String otpCode = "777999";
         context.getAuthenticationSession().setAuthNote(AUTH_NOTE_KEY, otpCode);
         UserModel user = context.getUser();
         mobileNumber = user.getFirstAttribute(MOBILE_NUMBER_ATTRIBUTE);
+
+        // get attribute from config
+        String mobileNumber = user.getFirstAttribute(getConfig(context, OtpAuthenticatorFactory.CONFIG_ATTRIBUTE_NAME));
         if (mobileNumber == null) {
-            log.error("User has no phone number");
+            log.error("User has not defined a phone number");
             context.getEvent().error("user_has_no_phone_number");
-            context.attempted();
-//            context.success();
-            return;
+
+            boolean stopIfNull = Boolean.parseBoolean(getConfig(context, OtpAuthenticatorFactory.CONFIG_STOP_IF_NULL));
+            if (stopIfNull) {
+                // if stop-if-null is true, then current execution will throw exception
+                // and authentication will be marked as failed
+                throw new AuthenticationFlowException(AuthenticationFlowError.GENERIC_AUTHENTICATION_ERROR, Errors.GENERIC_AUTHENTICATION_ERROR, "User has no mobile phone number");
+            } else {
+                // if user has no phone number set, then mark this flow as success
+                context.success();
+                return;
+            }
         }
+
+
         // TODO: get user's mobile then send OTP
         log.infof("Sending OTP to: %s", mobileNumber);
+
+
+        Response challengeForm = challenge(context, null, null);
+        context.challenge(challengeForm);
     }
 
     @Override
@@ -126,6 +141,13 @@ public class OtpAuthenticator extends OTPFormAuthenticator implements Authentica
         }
         context.success();
     }
+
+    private String getConfig(AuthenticationFlowContext context, String configName) {
+        AuthenticatorConfigModel configModel = context.getAuthenticatorConfig();
+        Map<String, String> config = configModel.getConfig();
+        return config.get(configName);
+    }
+
 
     @Override
     public boolean requiresUser() {
