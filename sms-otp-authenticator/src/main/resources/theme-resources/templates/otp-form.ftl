@@ -1,5 +1,5 @@
 <#import "template.ftl" as layout>
-<@layout.registrationLayout displayInfo=true; section>
+<@layout.registrationLayout displayMessage=!messagesPerField.existsError('totp'); section>
     <#if section = "title">
         ${msg("otp")}
     <#elseif section = "header">
@@ -17,11 +17,16 @@
                 <label for="otp-input" class="label ${properties.kcLabelClass!}">${msg("otp")}</label>
 
                 <div class="control">
-                    <input tabindex="2" id="otp-code-input" class="input ${properties.kcInputClass!}" name="otpInput" type="text" autocomplete="off"
-                           aria-invalid="<#if messagesPerField.existsError('otpInput')>true</#if>"
+                    <input tabindex="2" id="otp-code-input" class="input ${properties.kcInputClass!}" name="otp" type="text" autocomplete="off"
+                           aria-invalid="<#if messagesPerField.existsError('totp')>true</#if>"
                     />
                 </div>
-                <p class="help is-success">${msg("helpInputOtp")}</p>
+                <#if messagesPerField.existsError('totp')>
+                    <p id="input-error-otp-code" class="help is-danger ${properties.kcInputErrorMessageClass!}"
+                          aria-live="polite">
+                        ${kcSanitize(messagesPerField.get('totp'))?no_esc}
+                    </p>
+                </#if>
 
             </div>
 

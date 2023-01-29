@@ -6,6 +6,8 @@ import lombok.extern.jbosslog.JBossLog;
 import org.keycloak.authentication.AuthenticationFlowContext;
 import org.keycloak.authentication.AuthenticationFlowError;
 import org.keycloak.authentication.Authenticator;
+import org.keycloak.authentication.authenticators.browser.AbstractUsernameFormAuthenticator;
+import org.keycloak.authentication.authenticators.browser.OTPFormAuthenticator;
 import org.keycloak.common.util.KeycloakUriBuilder;
 import org.keycloak.forms.login.LoginFormsProvider;
 import org.keycloak.models.KeycloakSession;
@@ -14,6 +16,7 @@ import org.keycloak.models.UserModel;
 import org.keycloak.models.utils.FormMessage;
 import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.services.messages.Messages;
+import org.keycloak.services.validation.Validation;
 
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
@@ -22,19 +25,20 @@ import java.util.List;
 @JBossLog
 @Getter
 @Setter
-public class OtpAuthenticator implements Authenticator {
+public class OtpAuthenticator extends OTPFormAuthenticator implements Authenticator {
 
     private static final String MOBILE_NUMBER_ATTRIBUTE = "phoneNumber";
-    private static final String OTP_CODE_INPUT_FIELD = "otpInput";
+    private static final String OTP_CODE_INPUT_FIELD = "otp";
 
     private static final String QUERY_STRING_RESEND = "resendOtp";
 
-    private static final String RESEND_KEY = "key";
+    private static final String AUTH_NOTE_KEY = "sms-otp-code";
+
+    private static final String RESEND_KEY = "sms-otp-resend-key";
     private String mobileNumber;
 
     @Override
     public void authenticate(AuthenticationFlowContext context) {
-        UserModel user = context.getUser();
         // Check if resend code exist and valid
         String key = context.getAuthenticationSession().getAuthNote(RESEND_KEY);
         if (key != null) {
@@ -47,39 +51,63 @@ public class OtpAuthenticator implements Authenticator {
             }
         }
 
-        mobileNumber = user.getFirstAttribute(MOBILE_NUMBER_ATTRIBUTE);
-//        if (mobileNumber == null) {
-//            log.error("User has no phone number");
-//            context.getEvent().error("user_has_no_phone_number");
-//            context.success();
-//            return;
-//        }
-        // TODO: get user's mobile then send OTP
-        log.infof("Sending OTP to: %s", mobileNumber);
-        challenge(context, null);
+        generateAndSendOtpCode(context);
+        Response challengeForm = challenge(context, null, null);
+        context.challenge(challengeForm);
     }
 
-    private void challenge(AuthenticationFlowContext context, FormMessage errorMessage) {
-        LoginFormsProvider form = context.form().setExecution(context.getExecution().getId());
-        if (errorMessage != null) {
-            form.setErrors(List.of(errorMessage));
+    private void generateAndSendOtpCode(AuthenticationFlowContext context) {
+        // TODO: randomize otp code
+        String otpCode = "777999";
+        context.getAuthenticationSession().setAuthNote(AUTH_NOTE_KEY, otpCode);
+        UserModel user = context.getUser();
+        mobileNumber = user.getFirstAttribute(MOBILE_NUMBER_ATTRIBUTE);
+        if (mobileNumber == null) {
+            log.error("User has no phone number");
+            context.getEvent().error("user_has_no_phone_number");
+            context.attempted();
+//            context.success();
+            return;
         }
+        // TODO: get user's mobile then send OTP
+        log.infof("Sending OTP to: %s", mobileNumber);
+    }
 
+    @Override
+    protected Response challenge(AuthenticationFlowContext context, String error, String field) {
+        LoginFormsProvider form = context.form()
+                .setExecution(context.getExecution().getId());
+        if (error != null) {
+            if (field != null) {
+                form.addError(new FormMessage(field, error));
+            } else {
+                form.setError(error);
+            }
+        }
         String key = KeycloakModelUtils.generateId();
         context.getAuthenticationSession().setAuthNote(RESEND_KEY, key);
         String resendLink = KeycloakUriBuilder.fromUri(context.getRefreshExecutionUrl()).queryParam(QUERY_STRING_RESEND, key).build().toString();
-
-
-        form.setAttribute("maskedPhoneNumber", "081xxxxxxx99");
         form.setAttribute("resendLink", resendLink);
 
-        Response response = form.createForm("otp-form.ftl");
-        context.challenge(response);
+        // mask phone number
+        String maskedPhoneNumber = mobileNumber.replaceAll("\\d(?=(?:\\D*\\d){4})", "*");
+        form.setAttribute("maskedPhoneNumber", maskedPhoneNumber);
+
+        return createLoginForm(form);
+
+    }
+
+    @Override
+    protected Response createLoginForm(LoginFormsProvider form) {
+        return form.createForm("otp-form.ftl");
     }
 
     @Override
     public void action(AuthenticationFlowContext context) {
+        validateInput(context);
+    }
 
+    private void validateInput(AuthenticationFlowContext context) {
         MultivaluedMap<String, String> form = context.getHttpRequest().getDecodedFormParameters();
 
         if (form.containsKey("cancel")) {
@@ -87,18 +115,16 @@ public class OtpAuthenticator implements Authenticator {
             return;
         }
 
+        // this is just an example, do your own OTP code validation
         String otpInput = context.getHttpRequest().getDecodedFormParameters().getFirst(OTP_CODE_INPUT_FIELD);
-        if (!validateInput(otpInput)) {
-            context.attempted();
-            challenge(context, new FormMessage(Messages.INVALID_CODE));
+        String expectedInput = context.getAuthenticationSession().getAuthNote(AUTH_NOTE_KEY);
+        if (!otpInput.equals(expectedInput)) {
+            log.warnf("SMS OTP challenge failed '%s'. Expect '%s' but user input '%s'", mobileNumber, expectedInput, otpInput);
+            Response challengeForm = challenge(context, Messages.INVALID_TOTP, Validation.FIELD_OTP_CODE);
+            context.failureChallenge(AuthenticationFlowError.INVALID_CREDENTIALS, challengeForm);
             return;
         }
         context.success();
-    }
-
-    private boolean validateInput(String otpInput) {
-        // this is just an example, do your own OTP code validation
-        return (null != otpInput && otpInput.trim().equals("777999"));
     }
 
     @Override
@@ -114,6 +140,16 @@ public class OtpAuthenticator implements Authenticator {
     @Override
     public void setRequiredActions(KeycloakSession keycloakSession, RealmModel realmModel, UserModel userModel) {
         // NOOP
+    }
+
+    @Override
+    protected String disabledByBruteForceError() {
+        return Messages.INVALID_TOTP;
+    }
+
+    @Override
+    protected String disabledByBruteForceFieldError() {
+        return Validation.FIELD_OTP_CODE;
     }
 
     @Override
