@@ -8,6 +8,7 @@ import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -22,10 +23,12 @@ public class ConditionalOnScope implements ConditionalAuthenticator {
         UserModel user = context.getUser();
         Map<String, String> config = context.getAuthenticatorConfig().getConfig();
         String scopesString = config.get(ConditionalOnScopeFactory.SELECTED_SCOPES);
-        List<String> scopes = Arrays.asList(scopesString.split("\\s+"));
+        List<String> allowedScopes = Arrays.asList(scopesString.split("\\s+"));
 
-        String currentScopes = context.getAuthenticationSession().getClientNotes().getOrDefault("scope", "");
-        return scopes.contains(currentScopes);
+        scopesString = context.getAuthenticationSession().getClientNotes().getOrDefault("scope", "");
+        List<String> currentScopes = Arrays.asList(scopesString.split("\\s+"));
+
+        return !Collections.disjoint(currentScopes, allowedScopes);
     }
 
     @Override
