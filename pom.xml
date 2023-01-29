@@ -12,6 +12,7 @@
     <modules>
         <module>sms-otp-authenticator</module>
         <module>themes</module>
+        <module>conditional</module>
     </modules>
 
     <properties>
