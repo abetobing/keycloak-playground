@@ -1,1 +1,1 @@
-com.abetobing.keycloak.auth.OtpAuthenticatorFactory
+io.github.abetobing.keycloak.auth.OtpAuthenticatorFactory

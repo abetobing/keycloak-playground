@@ -1,4 +1,4 @@
-package com.abetobing.keycloak.conditional;
+package io.github.abetobing.keycloak.conditional;
 
 import lombok.extern.jbosslog.JBossLog;
 import org.keycloak.authentication.AuthenticationFlowContext;
@@ -7,20 +7,28 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 @JBossLog
-public class ConditionalOnUserAttributeExists implements ConditionalAuthenticator {
+public class ConditionalOnScope implements ConditionalAuthenticator {
 
-    public static final String PROVIDER_ID = "condition-on-user-attribute-exist";
-    public static final ConditionalOnUserAttributeExists SINGLETON = new ConditionalOnUserAttributeExists();
+    public static final String PROVIDER_ID = "condition-on-scope-exist";
+    public static final ConditionalOnScope SINGLETON = new ConditionalOnScope();
 
     @Override
     public boolean matchCondition(AuthenticationFlowContext context) {
         UserModel user = context.getUser();
         Map<String, String> config = context.getAuthenticatorConfig().getConfig();
-        String mobileNumber = user.getFirstAttribute(config.get(ConditionalOnUserAttributeExistsFactory.CONFIG_ATTRIBUTE_NAME));
-        return (mobileNumber != null);
+        String scopesString = config.get(ConditionalOnScopeFactory.SELECTED_SCOPES);
+        List<String> allowedScopes = Arrays.asList(scopesString.split("\\s+"));
+
+        scopesString = context.getAuthenticationSession().getClientNotes().getOrDefault("scope", "");
+        List<String> currentScopes = Arrays.asList(scopesString.split("\\s+"));
+
+        return !Collections.disjoint(currentScopes, allowedScopes);
     }
 
     @Override

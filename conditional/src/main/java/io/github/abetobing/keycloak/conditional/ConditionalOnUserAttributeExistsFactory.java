@@ -1,4 +1,4 @@
-package com.abetobing.keycloak.conditional;
+package io.github.abetobing.keycloak.conditional;
 
 import com.google.auto.service.AutoService;
 import org.keycloak.Config;

@@ -1,4 +1,4 @@
-package com.abetobing.keycloak.auth;
+package io.github.abetobing.keycloak.auth;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -8,10 +8,8 @@ import org.keycloak.authentication.AuthenticationFlowError;
 import org.keycloak.authentication.AuthenticationFlowException;
 import org.keycloak.authentication.Authenticator;
 import org.keycloak.authentication.authenticators.browser.OTPFormAuthenticator;
-import org.keycloak.authentication.authenticators.conditional.ConditionalAuthenticator;
 import org.keycloak.common.util.KeycloakUriBuilder;
 import org.keycloak.events.Errors;
-import org.keycloak.events.EventType;
 import org.keycloak.forms.login.LoginFormsProvider;
 import org.keycloak.models.AuthenticatorConfigModel;
 import org.keycloak.models.KeycloakSession;

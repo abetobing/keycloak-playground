@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.abetobing.keycloak</groupId>
+    <groupId>io.github.abetobing.keycloak</groupId>
     <artifactId>keycloak-playground</artifactId>
     <packaging>pom</packaging>
     <name>Keycloak Playground</name>
@@ -13,6 +13,7 @@
         <module>sms-otp-authenticator</module>
         <module>themes</module>
         <module>conditional</module>
+        <module>auth-tnc</module>
     </modules>
 
     <properties>
